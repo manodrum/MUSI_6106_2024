@@ -22,7 +22,7 @@ fn main() {
 
   // Read audio data and write it to the output file (one column per channel)
   for (i, sample) in audio_in.samples::<i16>().enumerate() {
-    let sample = sample.unwrap() as f32 / i16::MAX as f32;
+    let sample = sample.unwrap() as f32 / (1<<15) as f32;        //i16::MAX as f32;
     if i % num_channels == 0 {
       write!(out_text, "{:.6} ", sample).unwrap();
     } else {
