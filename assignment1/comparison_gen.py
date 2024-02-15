@@ -7,26 +7,40 @@ import matplotlib.pyplot as plt
 def fir_comb_filter(input_signal, sample_rate=44100, gain=0.5, delay_sec=0.25):
     delay_samples = int(sample_rate * delay_sec)
     output_signal = np.zeros_like(input_signal)
-    for channel in range(input_signal.shape[1]):  # Iterate over channels
+    print(input_signal.ndim)
+    if input_signal.ndim > 1:
+        for channel in range(input_signal.shape[1]):  # Iterate over channels
+            for n in range(len(input_signal)):
+                output_signal[n, channel] = input_signal[n, channel]
+                if n - delay_samples >= 0:
+                    output_signal[n, channel] += (
+                        gain * input_signal[n - delay_samples, channel]
+                    )
+    else:
         for n in range(len(input_signal)):
-            output_signal[n, channel] = input_signal[n, channel]
+            output_signal[n] = input_signal[n]
             if n - delay_samples >= 0:
-                output_signal[n, channel] += (
-                    gain * input_signal[n - delay_samples, channel]
-                )
+                output_signal[n] += gain * input_signal[n - delay_samples]
     return output_signal
 
 
 def iir_comb_filter(input_signal, sample_rate, gain, delay_sec):
     delay_samples = int(sample_rate * delay_sec)
     output_signal = np.zeros_like(input_signal)
-    for channel in range(input_signal.shape[1]):  # Iterate over channels
+    print(input_signal.ndim)
+    if input_signal.ndim > 1:
+        for channel in range(input_signal.shape[1]):  # Iterate over channels
+            for n in range(len(input_signal)):
+                output_signal[n, channel] = input_signal[n, channel]
+                if n - delay_samples >= 0:
+                    output_signal[n, channel] += (
+                        gain * output_signal[n - delay_samples, channel]
+                    )
+    else:
         for n in range(len(input_signal)):
-            output_signal[n, channel] = input_signal[n, channel]
+            output_signal[n] = input_signal[n]
             if n - delay_samples >= 0:
-                output_signal[n, channel] += (
-                    gain * output_signal[n - delay_samples, channel]
-                )
+                output_signal[n] += gain * output_signal[n - delay_samples]
     return output_signal
 
 
@@ -39,14 +53,9 @@ def process_audio_file(
     filter_type="fir",
 ):
     # Read the input file
-    input_signal, original_sample_rate = librosa.load(file_path, sr=sample_rate_new, mono=False)
-    print(input_signal.ndim)
-    # Check if input_signal is mono and convert to 2D array if it is
-    if input_signal.ndim == 1:
-        input_signal = input_signal[np.newaxis, :]
-    # Resample if needed
-    if original_sample_rate != sample_rate_new:
-        input_signal = librosa.resample(input_signal, orig_sr=original_sample_rate, target_sr=sample_rate_new)
+    input_signal, original_sample_rate = sf.read(file_path)
+    librosa.resample(input_signal, orig_sr=original_sample_rate, target_sr=sample_rate_new)
+    print(input_signal.shape)
 
     # Apply comb filter
     if filter_type == "fir":
@@ -54,18 +63,13 @@ def process_audio_file(
     else:  # Assume IIR if not FIR
         output_signal = iir_comb_filter(input_signal, sample_rate_new, gain, delay_sec)
 
-    # Write the output file
-    # Assuming output is stereo; adjust accordingly if not
-    if output_signal.shape[1] == 1:  # Convert back to mono for writing if necessary
-        output_signal = output_signal.ravel()
-    # output_signal = np.clip(
-    #     output_signal, -1.0, 1.0
     # )  # Ensure signal is within float32 range
     output_signal_int16 = (output_signal * 32767).astype(
         np.int16
     )  # Convert to int16 for WAV file
-    if output_signal_int16.ndim > 1:
-        output_signal_int16 = output_signal_int16.T
+    # if output_signal_int16.ndim > 1:
+    #     output_signal_int16 = output_signal_int16.T
+    print(output_signal_int16.shape)
     sf.write(output_path, output_signal_int16, sample_rate_new)
 
 
@@ -117,15 +121,15 @@ def plot_difference(
     plt.show()
 
 
-input_file = "real1.wav"
-output_file_fir = "real1_gt_fir.wav"
-output_file_iir = "real1_gt_iir.wav"
-fir_comp = "real1_fir_44100_0.5_0.25.wav"
-iir_comp = "real1_iir_44100_0.5_0.25.wav"
+input_file = "real2.wav"
+output_file_fir = "real2_gt_fir.wav"
+output_file_iir = "real2_gt_iir.wav"
+fir_comp = "real2_fir_48000_0.5_0.25.wav"
+iir_comp = "real2_iir_48000_0.5_0.25.wav"
 
-# process_audio_file(input_file, output_file_fir, 48000, 0.5, 0.25, 'fir')
-# process_audio_file(input_file, output_file_iir, 48000, 0.5, 0.25, 'iir')
+process_audio_file(input_file, output_file_fir, 48000, 0.5, 0.25, 'fir')
+process_audio_file(input_file, output_file_iir, 48000, 0.5, 0.25, 'iir')
 difference_fir, sr = compare_audio_files(fir_comp, output_file_fir)
 difference_iir, sr = compare_audio_files(iir_comp, output_file_iir)
-plot_difference(difference_fir, sr, title=fir_comp, save_path="real1_fir_diff.png")
-plot_difference(difference_iir, sr, title=iir_comp, save_path="real1_iir_diff.png")
+plot_difference(difference_fir, sr, title=fir_comp, save_path="real2_fir_diff.png")
+plot_difference(difference_iir, sr, title=iir_comp, save_path="real2_iir_diff.png")
