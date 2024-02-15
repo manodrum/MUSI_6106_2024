@@ -12,6 +12,8 @@ matlab plot after filter
 
 error between matlab and rust
 
+<img width="502" alt="Screenshot 2024-02-15 at 13 56 11" src="https://github.com/YellowWaveSr/ase-2024/assets/43238578/be057f3a-e332-4da9-be92-5252c8e20e9c">
+
 
 chord.wav
 
@@ -24,3 +26,5 @@ matlab plot after filter
 <img width="506" alt="Screenshot 2024-02-15 at 13 46 08" src="https://github.com/YellowWaveSr/ase-2024/assets/43238578/c583f8e0-833e-4039-a179-1cc30fdb3d8b">
 
 error between matlab and rust
+
+<img width="502" alt="Screenshot 2024-02-15 at 13 56 11" src="https://github.com/YellowWaveSr/ase-2024/assets/43238578/be057f3a-e332-4da9-be92-5252c8e20e9c">
