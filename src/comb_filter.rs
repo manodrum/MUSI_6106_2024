@@ -51,6 +51,7 @@ impl CombFilter {
         }
     }
 
+
     pub fn process(&mut self, input: & [& [f32]], output: &mut [&mut [f32]]) {
         let num_channels = input.len();
         for i in 0..num_channels
@@ -64,11 +65,11 @@ impl CombFilter {
         // let delay= self.get_param(FilterParam::Delay);
         // let mut delay_line = vec![0.0; 10]; // Memory allocation for length 10
     
-
+        let delay_time = (self.max_delay_secs * self.sample_rate_hz) as usize;
         match self.filter_type {
             FilterType::FIR => {
                 for i in 0..block_size {
-                    output[i] = input[i] + gain * self.delay_line[9];
+                    output[i] = input[i] + gain * self.delay_line[delay_time-1];
                     // Update delay line by shifting elements to the right
                     self.delay_line.pop();
                     self.delay_line.insert(0, input[i]);
@@ -76,7 +77,7 @@ impl CombFilter {
             }
             FilterType::IIR => {
                 for i in 0..block_size {
-                    output[i] = input[i] + gain * self.delay_line[9];
+                    output[i] = input[i] + gain * self.delay_line[delay_time-1];
                     // Update delay line by shifting elements to the right
                     self.delay_line.pop();
                     self.delay_line.insert(0, output[i]);
