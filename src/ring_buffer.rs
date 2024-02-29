@@ -28,8 +28,12 @@ impl<T: Copy + Default> RingBuffer<T> {
         self.buffer[self.tail]
     }
 
-    pub fn get(&self, offset: usize) -> T {
-        self.buffer[(self.tail + offset) % self.capacity()]
+    pub fn get(&self, offset: i32) -> T {
+        if self.tail as i32 + offset < 0 {
+            return self.buffer[(self.capacity() as i32 - (self.tail as i32 + offset) % self.capacity() as i32) as usize];
+        } else {
+            return self.buffer[((self.tail as i32 + offset) % self.capacity() as i32) as usize]
+        }
     }
 
     // `push` and `pop` write/read and advance the indices.
@@ -48,16 +52,24 @@ impl<T: Copy + Default> RingBuffer<T> {
         self.tail
     }
 
-    pub fn set_read_index(&mut self, index: usize) {
-        self.tail = index % self.capacity()
+    pub fn set_read_index(&mut self, index: i32) {
+        if index < 0 {
+            self.tail = (self.capacity() as i32 + index % self.capacity() as i32) as usize;
+        } else {
+            self.tail = (index % self.capacity() as i32) as usize;
+        }
     }
 
     pub fn get_write_index(&self) -> usize {
         self.head
     }
 
-    pub fn set_write_index(&mut self, index: usize) {
-        self.head = index % self.capacity()
+    pub fn set_write_index(&mut self, index: i32) {
+        if index < 0 {
+            self.head = (self.capacity() as i32 + index % self.capacity() as i32) as usize;
+        } else {
+            self.head = (index % self.capacity() as i32) as usize;
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -81,8 +93,8 @@ impl RingBuffer<f32> {
     pub fn get_frac(&self, offset: f32) -> f32 {
         let truncated = offset as i32;
         let decimal = offset - (truncated as f32);
-        let first_val = self.get(truncated as usize);
-        let second_val = self.get(truncated as usize + 1);
+        let first_val = self.get(truncated);
+        let second_val = self.get(truncated + 1);
         return first_val * (1.0 - decimal) + second_val * (decimal);
     }
 }
@@ -101,7 +113,6 @@ mod tests {
         ring_buffer.set_read_index(0);
         let result = ring_buffer.get_frac(0.25);
         assert!(f32::abs(result - 6.25) <= 0.0001);
-
     }
 
     #[test]
