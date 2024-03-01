@@ -31,7 +31,6 @@ impl Vibrato {
             self.buffer.push(input[i]);
             let offset = (lfo_samples[i]) * self.delay;
             output[i] = self.buffer.get_frac(offset);
-            dbg!(output[i]);
         }
     }
 }
@@ -66,12 +65,31 @@ mod tests {
 
         vibrato.process_block(&input, &mut output);
 
-        let delay_in_samples = (length as f32 * delay) as usize;
+        let delay_in_samples = (length as f32 * delay) as usize; //This will be zero
         let check_range = length - delay_in_samples;
         for i in 0..check_range {
-            dbg!(input[i]);
-            dbg!(output[i + delay_in_samples]);
             assert!(f32::abs(input[i] - output[i + delay_in_samples]) <= EPSILON);
         }
+    }
+
+    #[test]
+    fn dc_in_eq_dc_out() {
+        let length = 16000;
+        let delay = 0.314159;
+        let sample_rate = 16000;
+
+        let mut vibrato = Vibrato::new(1.0, 1.0, sample_rate);
+        vibrato.set_delay(delay);
+        let input = vec![1.0; length];
+        let mut output = vec![0.0; length];
+
+        vibrato.process_block(&input, &mut output);
+
+        // The direct DC output doesn't 'warm up' until we've passed the number of delay samples
+        let start_sample = (length as f32 * delay) as usize;
+        for i in start_sample..length {
+            assert!(output[i] == 1.0);
+        }
+
     }
 }
