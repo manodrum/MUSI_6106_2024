@@ -86,10 +86,58 @@ mod tests {
         vibrato.process_block(&input, &mut output);
 
         // The direct DC output doesn't 'warm up' until we've passed the number of delay samples
-        let start_sample = (length as f32 * delay) as usize;
+        let start_sample = (sample_rate as f32 * delay) as usize;
         for i in start_sample..length {
             assert!(output[i] == 1.0);
         }
+    }
 
+    #[test]
+    fn test_vary_block() {
+        //Repeating the above DC to DC test with a change in block size
+        let delay = 0.314159;
+        let sample_rate = 16000;
+
+        //We will run two blocks through, here are the two sizes
+        let length_one = 16000;
+        let length_two = 8000;
+
+        let mut vibrato = Vibrato::new(1.0, 1.0, sample_rate);
+        vibrato.set_delay(delay);
+
+        let input_one = vec![1.0; length_one];
+        let mut output_one = vec![0.0; length_one];
+        let input_two = vec![1.0; length_two];
+        let mut output_two = vec![0.0; length_two];
+
+        vibrato.process_block(&input_one, &mut output_one);
+        vibrato.process_block(&input_two, &mut output_two);
+
+        let start_sample = (sample_rate as f32 * delay) as usize;
+        for i in start_sample..(length_one + length_two) {
+            if i >= length_one {
+                assert!(output_two[i - length_one] == 1.0);
+            } else {
+                assert!(output_one[i] == 1.0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_zero_input() {
+        let length = 16000;
+        let delay = 0.314159;
+        let sample_rate = 16000;
+
+        let mut vibrato = Vibrato::new(1.0, 1.0, sample_rate);
+        vibrato.set_delay(delay);
+        let input = vec![0.0; length];
+        let mut output = vec![0.0; length];
+
+        vibrato.process_block(&input, &mut output);
+
+        for i in 0..length {
+            assert!(output[i] == 0.0);
+        }
     }
 }
