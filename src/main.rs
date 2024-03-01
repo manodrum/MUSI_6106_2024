@@ -8,7 +8,7 @@ mod lfo;
 
 fn show_info() {
     eprintln!("MUSI-6106 Assignment Executable");
-    eprintln!("(c) 2024 Stephen Garrett & Ian Clester");
+    eprintln!("(c) 2024 Stephen Garrett & Ian Clester & Joe Cleveland");
 }
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} <input wave filename> <output text filename>", args[0]);
+        eprintln!("Usage: {} <input wave filename> <output wave filename> <vibrato delay in seconds>", args[0]);
         return
     }
 
@@ -39,10 +39,11 @@ fn main() {
     let mut writer = hound::WavWriter::create(&args[2], writer_spec).unwrap();
 
     let mut vibratos: Vec<Vibrato> = Vec::new();
+    let delay = args[3].parse().unwrap();
 
     for c in 0..channels {
-        let mut v = Vibrato::new(4.0, 1.0, spec.sample_rate as usize);
-        v.set_delay(0.001);
+        let mut v = Vibrato::new(4.0, delay * 10.0, spec.sample_rate as usize);
+        v.set_delay(delay);
         vibratos.push(v);
     }
     let mut input_buffer: Vec<Vec<f32>> = Vec::new();
@@ -55,16 +56,12 @@ fn main() {
     // Read audio data and write it to the output text file (one column per channel)
     // let mut out = File::create(&args[2]).expect("Unable to create file");
 
+    let mut count = 0;
     for (i, sample) in reader.samples::<i16>().enumerate() {
         let sample = sample.unwrap() as f32 / (1 << 15) as f32;
-        // dbg!(input_buffer[0].len());
-        // dbg!(output_buffer[0].len());
         input_buffer[i % channels as usize].push(sample);
 
         // Once the input buffer is full up, process the block
-
-        // dbg!(i);
-        // dbg!((i + 1) / channels as usize % block_size);
         if (i + 1) / channels as usize % block_size == 0 {
             for c in 0..channels as usize {
                 // dbg!(output_buffer[c].len());
@@ -73,6 +70,7 @@ fn main() {
 
             for i in 0..block_size {
                 for c in 0..channels as usize {
+                    count += 1;
                     writer.write_sample(output_buffer[c][i]);
                 }
             }
