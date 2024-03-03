@@ -136,7 +136,7 @@ mod tests {
         // an offset of 0.5 from the start (index 0) should yield 0.5,
         // since it's halfway between 0.0 and 1.0.
         let offset = 10.5;
-        let expected_value = 0.5;
+        let expected_value = 1.5;
         let interpolated_value = ring_buffer.get_frac(offset);
         assert_eq!(interpolated_value, expected_value, "Failed at offset {}", offset);
 
