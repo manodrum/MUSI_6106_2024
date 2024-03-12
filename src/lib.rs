@@ -139,13 +139,9 @@ impl Plugin for AseExample {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        // Please don't actually do this. :-)
         let comb_filter = self.comb_filter.as_mut().unwrap();
         comb_filter.set_param(FilterParam::Delay, 1.0).unwrap();
-        println!("process! {} {} {} {} {}", buffer.samples(), buffer.channels(), buffer.as_slice().len(), buffer.as_slice()[0].len(), comb_filter.get_param(FilterParam::Delay));
-        let ins = buffer.as_slice_immutable().iter().map(|c| c.to_vec()).collect::<Vec<Vec<f32>>>();
-        let ins = ins.iter().map(|c| c.as_slice()).collect::<Vec<&[f32]>>();
-        comb_filter.process(ins.as_slice(), buffer.as_slice());
+        comb_filter.process(buffer.as_slice());
 
         ProcessStatus::Normal
     }

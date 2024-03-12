@@ -25,18 +25,18 @@ pub enum Error {
 }
 
 // Helper functions for core of FIR and IIR comb filters.
-fn process_fir(gain: f32, delay_line: &mut RingBuffer<f32>, input: &[f32], output: &mut [f32]) {
-    for (x, y) in input.iter().zip(output) {
+fn process_fir(gain: f32, delay_line: &mut RingBuffer<f32>, buffer: &mut [f32]) {
+    for x in buffer {
         // NOTE: We push first to ensure correct handling of zero-delay case.
         delay_line.push(*x);
-        *y = x + gain * delay_line.pop();
+        *x += gain * delay_line.pop();
     }
 }
 
-fn process_iir(gain: f32, delay_line: &mut RingBuffer<f32>, input: &[f32], output: &mut [f32]) {
-    for (x, y) in input.iter().zip(output) {
-        *y = x + gain * delay_line.pop();
-        delay_line.push(*y);
+fn process_iir(gain: f32, delay_line: &mut RingBuffer<f32>, buffer: &mut [f32]) {
+    for x in buffer {
+        *x += gain * delay_line.pop();
+        delay_line.push(*x);
     }
 }
 
@@ -62,14 +62,14 @@ impl CombFilter {
         }
     }
 
-    pub fn process(&mut self, input: &[&[f32]], output: &mut [&mut [f32]]) {
+    pub fn process(&mut self, buffers: &mut [&mut [f32]]) {
         let process_mono = match self.filter_type {
             FilterType::FIR => process_fir,
             FilterType::IIR => process_iir,
         };
         // Process each input/output channel using the corresponding delay line.
-        for i in 0..self.delay_lines.len() {
-            process_mono(self.gain, &mut self.delay_lines[i], input[i], output[i]);
+        for (delay_line, buffer) in self.delay_lines.iter_mut().zip(buffers) {
+            process_mono(self.gain, delay_line, buffer);
         }
     }
 
@@ -131,13 +131,11 @@ mod tests {
         filter.set_param(FilterParam::Gain, 1.0).unwrap();
 
         for i in 0..(delay * sample_rate * 10.0).ceil() as usize {
-            let inp = [(2.0*PI*freq*i as f32/sample_rate).sin()];
-            let ins: &[&[f32]] = &[&inp];
-            let mut out = [0.0_f32];
-            let outs: &mut [&mut [f32]] = &mut[&mut out];
-            filter.process(ins, outs);
+            let mut buf: [f32; 1] = [(2.0*PI*freq*i as f32/sample_rate).sin()];
+            let bufs: &mut [&mut [f32]] = &mut[&mut buf];
+            filter.process(bufs);
             if i as f32 >= delay * sample_rate {
-                assert!(out[0].abs() < EPSILON);
+                assert!(buf[0].abs() < EPSILON);
             }
         }
     }
@@ -149,10 +147,9 @@ mod tests {
             [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
             [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0],
         ];
-        let mut output = [[0.0_f32; 10]; 2];
-        let ins: &[&[f32]] = &[&input[0], &input[1]];
-        let (out0, out1) = output.split_at_mut(1);
-        let outs: &mut[&mut [f32]] = &mut [&mut out0[0], &mut out1[0]];
+        let mut output = input;
+        let (buf0, buf1) = output.split_at_mut(1);
+        let bufs: &mut[&mut [f32]] = &mut [&mut buf0[0], &mut buf1[0]];
 
         let sample_rate = 10.0;
         let gain = 0.1;
@@ -163,7 +160,7 @@ mod tests {
         filter.set_param(FilterParam::Delay, delay).unwrap();
         filter.set_param(FilterParam::Gain, gain).unwrap();
 
-        filter.process(ins, outs);
+        filter.process(bufs);
         for i in 0..2 {
             for j in 1..10 {
                 let expected = input[i][j] + gain * input[i][j-1];
@@ -184,16 +181,15 @@ mod tests {
         filter.set_param(FilterParam::Gain, 1.0).unwrap();
 
         for i in 0..(delay * sample_rate * 10.0).ceil() as usize {
-            let inp = [(2.0*PI*freq*i as f32/sample_rate).sin()];
-            let ins: &[&[f32]] = &[&inp];
-            let mut out = [0.0_f32];
-            let outs: &mut [&mut [f32]] = &mut[&mut out];
-            filter.process(ins, outs);
+            let input = (2.0*PI*freq*i as f32/sample_rate).sin();
+            let mut out = [input];
+            let bufs: &mut [&mut [f32]] = &mut[&mut out];
+            filter.process(bufs);
             if i as f32 >= delay * sample_rate {
                 // Due to feedback loop, signal should keep constructively interfering with delay, producing larger and larger values.
                 // Output should be delay_cycle * input, where delay_cycle is how many times we've gone around delay (starting from 1).
                 let delay_cycle = i / ((delay * sample_rate) as usize) + 1;
-                assert!((out[0] / (delay_cycle as f32) - inp[0]).abs() < EPSILON);
+                assert!((out[0] / (delay_cycle as f32) - input).abs() < EPSILON);
             }
         }
     }
@@ -208,8 +204,6 @@ mod tests {
         for filter_type in [FilterType::FIR, FilterType::IIR] {
             const LENGTH: usize = 8192;
             let mut input = [0.0; LENGTH];
-            let mut output_a = [0.0; LENGTH];
-            let mut output_b = [0.0; LENGTH];
 
             // Generate random input signal.
             use rand::{Rng, SeedableRng};
@@ -219,21 +213,21 @@ mod tests {
             }
 
             // First, compute the output in one go.
-            let ins: &[&[f32]] = &[&input];
-            let outs: &mut [&mut [f32]] = &mut[&mut output_a];
+            let mut output_a = input;
+            let bufs: &mut [&mut [f32]] = &mut[&mut output_a];
             let mut filter = CombFilter::new(filter_type, delay, sample_rate, 1);
             filter.set_param(FilterParam::Delay, delay).unwrap();
-            filter.process(ins, outs);
+            filter.process(bufs);
 
             // Then, compute the output in many smaller blocks with variable size (from 0-1024).
+            let mut output_b = input;
             filter.reset();
             filter.set_param(FilterParam::Delay, delay).unwrap();
             let mut i = 0;
             while i < LENGTH {
                 let block_size = rng.gen_range(0..=std::cmp::min(LENGTH - i, 1024));
-                let ins = &[&input[i..i + block_size]];
-                let outs = &mut[&mut output_b[i..i + block_size]];
-                filter.process(ins, outs);
+                let bufs = &mut[&mut output_b[i..i + block_size]];
+                filter.process(bufs);
                 i += block_size;
             }
 
@@ -254,12 +248,10 @@ mod tests {
         for filter_type in [FilterType::FIR, FilterType::IIR] {
             let mut filter = CombFilter::new(filter_type, delay, sample_rate, 1);
             for _ in 0..(delay * sample_rate * 10.0).ceil() as usize {
-                let inp = [0.0];
-                let ins: &[&[f32]] = &[&inp];
-                let mut out = [0.0_f32];
-                let outs: &mut [&mut [f32]] = &mut[&mut out];
-                filter.process(ins, outs);
-                assert_eq!(out[0], 0.0);
+                let mut buf = [0.0_f32];
+                let bufs: &mut [&mut [f32]] = &mut[&mut buf];
+                filter.process(bufs);
+                assert_eq!(buf[0], 0.0);
             }
         }
     }
@@ -280,13 +272,12 @@ mod tests {
         use rand::{Rng, SeedableRng};
         let mut rng = rand::rngs::StdRng::seed_from_u64(1234);
         for _ in 0..(max_delay * sample_rate * 10.0).ceil() as usize {
-            let inp = [rng.gen()];
-            let ins: &[&[f32]] = &[&inp];
-            let mut out = [0.0_f32];
-            let outs: &mut [&mut [f32]] = &mut[&mut out];
-            filter.process(ins, outs);
+            let input = rng.gen();
+            let mut out = [input];
+            let bufs: &mut [&mut [f32]] = &mut[&mut out];
+            filter.process(bufs);
             // Since delay is 0, we expect `out = in + gain * in`.
-            assert!((out[0] / expected_gain - inp[0]).abs() < EPSILON);
+            assert!((out[0] / expected_gain - input).abs() < EPSILON);
         }
 
         // For IIR filter, a delay of zero is invalid, as it would create a zero-delay feedback loop.
