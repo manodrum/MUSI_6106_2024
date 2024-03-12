@@ -1,5 +1,6 @@
 mod ring_buffer;
 mod comb_filter;
+mod dancing_strings;
 
 use comb_filter::{CombFilter, FilterParam, FilterType};
 use nih_plug::prelude::*;
@@ -45,7 +46,7 @@ impl Default for AseExample {
 impl Default for AseExampleParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(300, 180),
+            editor_state: EguiState::from_size(400, 340),
             // This gain is stored as linear gain. NIH-plug comes with useful conversion functions
             // to treat these kinds of parameters as if we were dealing with decibels. Storing this
             // as decibels is easier to work with, but requires a conversion for every sample.
@@ -127,7 +128,6 @@ impl Plugin for AseExample {
 
     fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         let params = self.params.clone();
-        // let peak_meter = self.peak_meter.clone();
         create_egui_editor(
             self.params.editor_state.clone(),
             (),
@@ -168,21 +168,8 @@ impl Plugin for AseExample {
                         .suffix(" dB"),
                     );
 
-                    // TODO: Add a proper custom widget instead of reusing a progress bar
-                    // let peak_meter =
-                    //     util::gain_to_db(peak_meter.load(std::sync::atomic::Ordering::Relaxed));
-                    // let peak_meter_text = if peak_meter > util::MINUS_INFINITY_DB {
-                    //     format!("{peak_meter:.1} dBFS")
-                    // } else {
-                    //     String::from("-inf dBFS")
-                    // };
-
-                    // let peak_meter_normalized = (peak_meter + 60.0) / 60.0;
-                    // ui.allocate_space(egui::Vec2::splat(2.0));
-                    // ui.add(
-                    //     egui::widgets::ProgressBar::new(peak_meter_normalized)
-                    //         .text(peak_meter_text),
-                    // );
+                    ui.label("Cool custom widget");
+                    dancing_strings::draw(ui);
                 });
             },
         )
