@@ -24,6 +24,8 @@ struct AseExampleParams {
     pub gain: FloatParam,
     #[id = "delay"]
     pub delay: FloatParam,
+    #[id = "filter_type"]
+    pub filter_type: EnumParam<FilterType>,
 }
 
 impl Default for AseExample {
@@ -69,6 +71,8 @@ impl Default for AseExampleParams {
             )
             .with_unit("ms")
             .with_step_size(1.0),
+
+            filter_type: EnumParam::new("Filter Type", FilterType::FIR),
         }
     }
 }
@@ -152,6 +156,7 @@ impl Plugin for AseExample {
         let gain = self.params.gain.value();
         let delay = self.params.delay.value() / 1000.0;
         let comb_filter = self.comb_filter.as_mut().unwrap();
+        comb_filter.filter_type = self.params.filter_type.value();
         comb_filter.set_param(FilterParam::Gain, gain).unwrap();
         comb_filter.set_param(FilterParam::Delay, delay).unwrap();
         comb_filter.process(buffer.as_slice());

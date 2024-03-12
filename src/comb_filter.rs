@@ -1,13 +1,15 @@
+use nih_plug::params::enums::Enum;
+
 use crate::ring_buffer::RingBuffer;
 
 pub struct CombFilter {
-    filter_type: FilterType,
+    pub filter_type: FilterType,
     sample_rate: f32,
     gain: f32,
     delay_lines: Vec<RingBuffer<f32>>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Enum)]
 pub enum FilterType {
     FIR,
     IIR,
