@@ -22,6 +22,8 @@ struct AseExampleParams {
     /// gain parameter is stored as linear gain while the values are displayed in decibels.
     #[id = "gain"]
     pub gain: FloatParam,
+    #[id = "delay"]
+    pub delay: FloatParam,
 }
 
 impl Default for AseExample {
@@ -53,12 +55,20 @@ impl Default for AseExampleParams {
             // Because the gain parameter is stored as linear gain instead of storing the value as
             // decibels, we need logarithmic smoothing
             .with_smoother(SmoothingStyle::Logarithmic(50.0))
-            .with_unit(" dB")
+            .with_unit("dB")
             // There are many predefined formatters we can use here. If the gain was stored as
             // decibels instead of as a linear gain value, we could have also used the
             // `.with_step_size(0.1)` function to get internal rounding.
             .with_value_to_string(formatters::v2s_f32_gain_to_db(2))
             .with_string_to_value(formatters::s2v_f32_gain_to_db()),
+
+            delay: FloatParam::new(
+                "Delay",
+                0.0,
+                FloatRange::Linear { min: 0.0, max: 1000.0 },
+            )
+            .with_unit("ms")
+            .with_step_size(1.0),
         }
     }
 }
@@ -139,8 +149,11 @@ impl Plugin for AseExample {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        let gain = self.params.gain.value();
+        let delay = self.params.delay.value() / 1000.0;
         let comb_filter = self.comb_filter.as_mut().unwrap();
-        comb_filter.set_param(FilterParam::Delay, 1.0).unwrap();
+        comb_filter.set_param(FilterParam::Gain, gain).unwrap();
+        comb_filter.set_param(FilterParam::Delay, delay).unwrap();
         comb_filter.process(buffer.as_slice());
 
         ProcessStatus::Normal
