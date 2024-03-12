@@ -1,3 +1,7 @@
+mod ring_buffer;
+mod comb_filter;
+
+use comb_filter::{CombFilter, FilterParam, FilterType};
 use nih_plug::prelude::*;
 use std::sync::Arc;
 
@@ -7,6 +11,7 @@ use std::sync::Arc;
 
 struct AseExample {
     params: Arc<AseExampleParams>,
+    comb_filter: Option<CombFilter>,
 }
 
 #[derive(Params)]
@@ -23,6 +28,7 @@ impl Default for AseExample {
     fn default() -> Self {
         Self {
             params: Arc::new(AseExampleParams::default()),
+            comb_filter: None,
         }
     }
 }
@@ -108,12 +114,23 @@ impl Plugin for AseExample {
         // Resize buffers and perform other potentially expensive initialization operations here.
         // The `reset()` function is always called right after this function. You can remove this
         // function if you do not need it.
+        let mut comb_filter = CombFilter::new(
+            FilterType::FIR,
+            1.0,
+            _buffer_config.sample_rate,
+            _audio_io_layout.main_input_channels.unwrap().get() as usize
+        );
+        comb_filter.set_param(FilterParam::Delay, 1.0).unwrap();
+        comb_filter.set_param(FilterParam::Gain, 0.8).unwrap();
+        dbg!(comb_filter.get_param(FilterParam::Delay));
+        self.comb_filter = Some(comb_filter);
         true
     }
 
     fn reset(&mut self) {
         // Reset buffers and envelopes here. This can be called from the audio thread and may not
         // allocate. You can remove this function if you do not need it.
+        self.comb_filter.as_mut().unwrap().reset()
     }
 
     fn process(
@@ -122,14 +139,13 @@ impl Plugin for AseExample {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        for channel_samples in buffer.iter_samples() {
-            // Smoothing is optionally built into the parameters themselves
-            let gain = self.params.gain.smoothed.next();
-
-            for sample in channel_samples {
-                *sample *= gain;
-            }
-        }
+        // Please don't actually do this. :-)
+        let comb_filter = self.comb_filter.as_mut().unwrap();
+        comb_filter.set_param(FilterParam::Delay, 1.0).unwrap();
+        println!("process! {} {} {} {} {}", buffer.samples(), buffer.channels(), buffer.as_slice().len(), buffer.as_slice()[0].len(), comb_filter.get_param(FilterParam::Delay));
+        let ins = buffer.as_slice_immutable().iter().map(|c| c.to_vec()).collect::<Vec<Vec<f32>>>();
+        let ins = ins.iter().map(|c| c.as_slice()).collect::<Vec<&[f32]>>();
+        comb_filter.process(ins.as_slice(), buffer.as_slice());
 
         ProcessStatus::Normal
     }
