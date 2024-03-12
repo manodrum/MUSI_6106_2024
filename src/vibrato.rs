@@ -19,7 +19,17 @@ impl Vibrato {
     }
 
     pub fn set_delay(&mut self, delay_in_secs: f32) {
+        if delay_in_secs < 0 {
+            panic!("Delay must be positive");
+        }
         self.delay = delay_in_secs * self.sample_rate as f32;
+    }
+
+    pub fn set_freq(&mut self, freq: f32) {
+        if freq < 0 {
+            panic!("Vibrato freq must be positive");
+        }
+        self.lfo = LFO::new(freq, self.sample_rate);
     }
 
     pub fn process_block(&mut self, input: &[f32], output: &mut [f32]) {
