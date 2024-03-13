@@ -146,7 +146,7 @@ impl Plugin for AseExample {
                     ui.add(widgets::ParamSlider::for_param(&params.delay, setter));
 
                     ui.label(
-                        "Also gain, but with a lame widget. Can't even render the value correctly!",
+                        "Also gain (with default egui slider)",
                     );
                     // This is a simple naieve version of a parameter slider that's not aware of how
                     // the parameters work
@@ -167,6 +167,9 @@ impl Plugin for AseExample {
                         })
                         .suffix(" dB"),
                     );
+
+                    ui.label("Filter type");
+                    ui.add(widgets::ParamSlider::for_param(&params.filter_type, setter));
 
                     ui.label("Cool custom widget");
                     dancing_strings::draw(ui);
