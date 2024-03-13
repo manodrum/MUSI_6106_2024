@@ -134,6 +134,7 @@ impl Plugin for AseExample {
             |_, _| {},
             move |egui_ctx, setter, _state| {
                 egui::CentralPanel::default().show(egui_ctx, |ui| {
+                    // Adapted from https://github.com/robbert-vdh/nih-plug/blob/master/plugins/examples/gain_gui_egui/src/lib.rs
                     // NOTE: See `plugins/diopser/src/editor.rs` for an example using the generic UI widget
 
                     // This is a fancy widget that can get all the information it needs to properly
@@ -212,6 +213,9 @@ impl Plugin for AseExample {
         _aux: &mut AuxiliaryBuffers,
         _context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
+        // NOTE: We're only updating the comb filter parameters at the start of the block.
+        // To make things more smooth, you could interpolate and update the parameters per-sample.
+        // (See e.g. `Smoothed::next()` and `Smoothed::next_block_exact()`.)
         let gain = self.params.gain.value();
         let delay = self.params.delay.value() / 1000.0;
         let comb_filter = self.comb_filter.as_mut().unwrap();
