@@ -11,7 +11,14 @@ use cpal::{FromSample, SampleRate, SizedSample, Stream};
 
 pub struct State {
     stream: Stream,
-    // filter: Arc<Mutex<CombFilter>>,
+    filter: Arc<Mutex<CombFilter>>,
+}
+
+#[wasm_bindgen]
+impl Handle {
+    pub fn set_delay(&mut self, delay: f32) {
+        self.0.filter.lock().unwrap().set_param(FilterParam::Delay, delay);
+    }
 }
 
 fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> State
@@ -22,6 +29,14 @@ where
     let channels = config.channels as usize;
 
     // TODO: Setup and initialize your comb filter.
+    let filter = Arc::new(
+        Mutex::new(CombFilter::new(FilterType::IIR, 1.0, sample_rate, 1))
+    );
+    {
+        let mut filter = filter.lock().unwrap();
+        filter.set_param(FilterParam::Delay, 0.2).unwrap();
+        filter.set_param(FilterParam::Gain, 0.5).unwrap();
+    }
     let mut t = 0f32;
 
     let mut blips = move || {
@@ -37,10 +52,13 @@ where
     };
 
     let mut next_value = {
+        let filter = Arc::clone(&filter);
         move || {
             let sample = blips();
-            // TODO: Process this with a comb filter.
-            sample
+            let inp: &[&[f32]] = &[&[sample]];
+            let out: &mut [&mut [f32]] = &mut [&mut [sample]];
+            filter.lock().unwrap().process(inp, out);
+            out[0][0]
         }
     };
 
@@ -55,7 +73,7 @@ where
         )
         .unwrap();
     stream.play().unwrap();
-    State { stream }
+    State { stream, filter }
 }
 
 

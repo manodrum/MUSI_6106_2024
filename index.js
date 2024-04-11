@@ -14,7 +14,9 @@ import("./pkg").catch(console.error).then(rust_module => {
     const delay_slider = document.getElementById("delay")
     delay_slider.addEventListener("change", event => {
         if (handle !== null) {
-            // TODO: Connect this to your filter.
+            const delay = +delay_slider.value
+            console.log(delay)
+            handle.set_delay(delay)
         }
     })
 })
