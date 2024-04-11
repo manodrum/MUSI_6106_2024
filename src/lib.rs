@@ -1,7 +1,7 @@
 mod ring_buffer;
 mod comb_filter;
 
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 
 use comb_filter::{CombFilter, FilterParam, FilterType};
 use wasm_bindgen::prelude::*;
@@ -9,19 +9,25 @@ use web_sys::console;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, SampleRate, SizedSample, Stream};
 
-pub struct State {
+struct Message {
+    param: FilterParam,
+    value: f32,
+}
+
+#[wasm_bindgen]
+pub struct Handle {
     stream: Stream,
-    filter: Arc<Mutex<CombFilter>>,
+    tx: mpsc::Sender<Message>,
 }
 
 #[wasm_bindgen]
 impl Handle {
     pub fn set_delay(&mut self, delay: f32) {
-        self.0.filter.lock().unwrap().set_param(FilterParam::Delay, delay);
+        self.tx.send(Message { param: FilterParam::Delay, value: delay }).unwrap();
     }
 }
 
-fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> State
+fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Handle
 where
     T: SizedSample + FromSample<f32>,
 {
@@ -29,14 +35,10 @@ where
     let channels = config.channels as usize;
 
     // TODO: Setup and initialize your comb filter.
-    let filter = Arc::new(
-        Mutex::new(CombFilter::new(FilterType::IIR, 1.0, sample_rate, 1))
-    );
-    {
-        let mut filter = filter.lock().unwrap();
-        filter.set_param(FilterParam::Delay, 0.2).unwrap();
-        filter.set_param(FilterParam::Gain, 0.5).unwrap();
-    }
+    let (tx, rx) = mpsc::channel::<Message>();
+    let mut filter = CombFilter::new(FilterType::IIR, 1.0, sample_rate, 1);
+    filter.set_param(FilterParam::Delay, 0.2).unwrap();
+    filter.set_param(FilterParam::Gain, 0.5).unwrap();
     let mut t = 0f32;
 
     let mut blips = move || {
@@ -52,12 +54,14 @@ where
     };
 
     let mut next_value = {
-        let filter = Arc::clone(&filter);
         move || {
+            while let Ok(m) = rx.try_recv() {
+                filter.set_param(m.param, m.value).unwrap();
+            }
             let sample = blips();
             let inp: &[&[f32]] = &[&[sample]];
             let out: &mut [&mut [f32]] = &mut [&mut [sample]];
-            filter.lock().unwrap().process(inp, out);
+            filter.process(inp, out);
             out[0][0]
         }
     };
@@ -73,7 +77,7 @@ where
         )
         .unwrap();
     stream.play().unwrap();
-    State { stream, filter }
+    Handle { stream, tx }
 }
 
 
@@ -99,9 +103,6 @@ pub fn main_js() -> Result<(), JsValue> {
 }
 
 #[wasm_bindgen]
-pub struct Handle(State);
-
-#[wasm_bindgen]
 pub fn play() -> Handle {
     let host = cpal::default_host();
     let device = host
@@ -115,14 +116,13 @@ pub fn play() -> Handle {
         .unwrap()
         .with_sample_rate(SampleRate(44100));
 
-    let state = match config.sample_format() {
+    match config.sample_format() {
         cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
         cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
         cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
         // not all supported sample formats are included in this example
         _ => panic!("Unsupported sample format!"),
-    };
-    Handle(state)
+    }
 }
 
 fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
