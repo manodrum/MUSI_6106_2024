@@ -8,5 +8,31 @@
     <input id="play" type="button" value="play"/>
     <input id="stop" type="button" value="stop"/>
     <input id="delay" type="range" min="0" max="1" step="0.01" />
+    <input id="gain" type="range" min="0" max="1" step="0.01" />
+    <script type="text/javascript">
+function setup() {
+    createCanvas(400, 400)
+}
+
+let x = 0, y = 0
+
+function draw() {
+    background(0)
+    // colorMode(HSL)
+    colorMode(RGB)
+    fill(x/width * 255, 100, y/height * 255)
+    ellipse(x, y, 30, 30)
+}
+
+function mouseDragged() {
+    x = mouseX
+    y = mouseY
+    if (window.handle !== null) {
+      window.handle.set_delay(x/width)
+      window.handle.set_gain(y/height)
+    }
+}
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/p5.min.js"></script>
   </body>
 </html>

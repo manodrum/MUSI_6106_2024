@@ -25,6 +25,9 @@ impl Handle {
     pub fn set_delay(&mut self, delay: f32) {
         self.tx.send(Message { param: FilterParam::Delay, value: delay }).unwrap();
     }
+    pub fn set_gain(&mut self, gain: f32) {
+        self.tx.send(Message { param: FilterParam::Gain, value: gain }).unwrap();
+    }
 }
 
 fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Handle
